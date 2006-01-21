@@ -1,0 +1,104 @@
+broadband-usage - Home broadband usage meter for SNMP-enabled modem/routers
+---------------------------------------------------------------------------
+This software meters the traffic on an SNMP-enabled broadband modem/router
+and then lets you find out your usage by calendar month. It's main purpose
+is to let you know what your usage is without having to resort to your ISP's
+website and without having to trust their accounting. If they get their
+accounting wrong (which can happen), this software gives you data that you
+might be able to use when contesting the invoice.
+
+Features
+--------
+Tiny: 9KB download, 18KB footprint (plus ~140KB per month for the logfile)
+Easy: The only pre-requisites are perl and snmpget which you probably have
+Smart: Handles modem/router reboots, 32/64bit counter overflow, uptime overflow
+Pragmatic: Counts peak/off-peak usage separately; Report in GB or GiB
+Free: Released under the terms of the GPL (http://www.gnu.org/copyleft/gpl.html)
+
+Description
+-----------
+This software takes the form of two scripts. The first, broadband-usage-log,
+logs data to file. The second, broadband-usage, reports on the logged data.
+
+broadband-usage-log
+-------------------
+This program obtains traffic statistics via SNMP and saves it to file.
+Cron it to run every 15 minutes and at 23:59:59 every day.
+There is one file per modem/router interface. You will probably only
+need one file for home use.
+
+broadband-usage
+---------------
+This program displays monthly totals for the routers and interfaces
+that have been logged by broadband-usage-log. Typically this will be
+a single router (your broadband modem/router) and a single interface
+(the WAN interface). Delete or compress old logfiles if you don't want
+them appearing in its output.
+
+Why?
+----
+MRTG shows average throughput, not total usage, and I'm told it doesn't
+work on calendar months, and my broadband service is based on calendar
+months. I just wanted something that would tell me how much of my monthly
+bandwidth I had used (i.e. something independent of my broadband service
+provider).
+
+I searched freshmeat, sourceforge and google but found nothing suitable
+(or if they were suitable, I never found out because I gave up when the
+list of prerequisite software grew out of control). It seemed the easiest
+solution was to just write a couple of little perl scripts that did what
+I wanted.
+
+Install
+-------
+First, make sure that you have snmpget and that it works.
+If you don't have it, you can get it from:
+
+  http://www.net-snmp.org/download/
+
+Then, install the broadband-usage software (under /usr/local by default):
+
+  $ make install [prefix=/usr/local] # as root
+
+Then, add the following to your crontab:
+
+  0,15,30,45 * * * * /usr/local/bin/broadband-usage-log -r router -i2
+  59 23 * * * sleep 59; /usr/local/bin/broadband-usage-log -r router -i2
+
+Where "router" is the hostname of your broadband modem/router,
+and "2" is the numeric index of its WAN interface. The snmpwalk
+program can help you find out which interface is the WAN interface.
+You can log multiple interfaces by using a comma separated list of
+interface numbers with the -i option.
+
+Finally, some time later, you will be able to see your broadband usage:
+
+ $ /usr/local/bin/broadband-usage
+ 200601.router.2 in=832249062 out=19478166 total=832249062 (832.249MB)
+
+Or even have cron mail it to you every month by adding this to your crontab:
+
+  5 0 1 * * /usr/local/bin/broadband-usage
+
+Further Reading
+---------------
+Run the manpages of both programs for more important information
+including advice on how often broadband-usage-log should be run
+depending on the link speed.
+
+Example
+-------
+Here is the broadband-usage-related part of my crontab:
+
+ # Log broadband usage every 15 minutes and at 23:59:59 every day
+ 0,15,30,45 * * * * /usr/local/bin/broadband-usage-log -r moriarty -i 102
+ 59 23 * * * sleep 59; /usr/local/bin/broadband-usage-log -r moriarty -i 102
+ # Save broadband usage report into the broadband log directory
+ 5 0 1 * * /usr/local/bin/broadband-usage -o 0100-1000 > /var/log/broadband/`date +%Y%m%d`-usage
+ # Compress broadband usage logs after a month, delete them after three months
+ 0 0 1 * * find /var/log/broadband -mtime +32 -a -name '*[0-9]' -exec gzip '{}' ';'
+ 0 0 1 * * find /var/log/broadband -mtime +92 -a -name '*.gz' -exec rm '{}' ';'
+
+Author
+------
+20060122 raf <raf@raf.org>

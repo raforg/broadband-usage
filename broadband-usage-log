@@ -1,0 +1,236 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# broadband-usage - Home broadband usage meter for SNMP-enabled modem/routers
+#
+# Copyright (C) 2006 raf <raf@raf.org>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# or visit http://www.gnu.org/copyleft/gpl.html
+#
+# 20060122 raf <raf@raf.org>
+
+=head1 NAME
+
+I<broadband-usage-log> - Home broadband usage meter for SNMP-enabled modem/routers
+
+=head1 SYNOPSIS
+
+ usage: broadband-usage-log [options]
+ options:
+  -h           - Print this message then exit.
+  -V           - Print the version then exit.
+  -M           - Print the manpage then exit
+  -W           - Print the manpage in html format then exit
+  -R           - Print the manpage in nroff format then exit
+  -l /logdir   - Override log directory (default: /var/log/broadband)
+  -s snmpget   - Override snmpget path (default: snmpget)
+  -v (1|2c|3)  - Override SNMP version (default: 1)
+  -c community - Override SNMP community (default: public)
+  -r router    - Override modem/router hostname (default: router)
+  -i #[,#]*    - Override the interface number(s) (default: 1)
+  -w           - Fetch 64-bit byte counters (rather than 32-bit ones)
+
+=head1 DESCRIPTION
+
+This program collects modem/router statistics and logs them to file. Create
+the log directory C</var/log/broadband> (owned by you). Cron this to run
+every 5-15 minutes and at 23:59:59 every night. Then use I<broadband-usage(1)>
+later to report the logged statistics. WARNING: Don't switch between 32- and
+64-bit counters in the same file.
+
+=head1 CAVEAT
+
+Some data is lost when the modem/router is rebooted. Extrapolation can be
+done by I<broadband-usage> to estimate the missing data. If this is a
+problem, run I<broadband-usage-log> every 5 minutes to reduce the
+inaccuracy. If you do this, the log files will be 3 times larger so cronning
+a job to delete/compress old ones becomes more important:
+
+ 0 0 1 * * find /var/log/broadband -mtime +32 -a -name '*[0-9]' -exec gzip '{}' ';'
+ 0 0 1 * * find /var/log/broadband -mtime +92 -a -name '*.gz' -exec rm '{}' ';'
+
+The host running I<broadband-usage-log> needs to be up. Preferably all the
+time. This isn't really a bug might it might be a problem for some people.
+If the monitoring host is shut down, and then other hosts start using the
+broadband connection, and then the modem/router is rebooted, and then the
+monitoring host is booted, then the results will exclude traffic that
+occurred between the time that the the monitoring host was shut down and the
+time when the the modem/router was rebooted. So don't do that.
+
+Similarly, multiple rapid reboots of the modem/router will result in the
+exclusion of traffic that occurs between the reboots. So don't do that
+either.
+
+Similarly, data is lost if byte counters overflow multiple times before the
+next time that I<broadband-usage-log> runs. Fortunately, this is unlikely to
+be a problem for broadband usage provided that I<broadband-usage-log> is run
+frequently enough.
+
+Here are some figures on how often 32-bit byte counters can overflow on
+network links of different speeds:
+
+ Link Speed     Minumum overflow interval  Sample frequency
+ -------------- -------------------------  ----------------
+ ADSL   256kbps  37.28 hours               15 minutes
+ ADSL   512kbps  18.64 hours               15 minutes
+ ADSL  1500kbps   6.36 hours               15 minutes
+ Cable    5Mbps   1.91 hours               15 minutes
+ ADSL2    8Mbps   1.19 hours               15 minutes
+ LAN     10Mbps  57.26 minutes             15 minutes
+ ADSL2+  24Mbps  23.86 minutes             5 minutes
+ LAN    100Mbps   5.73 minutes             1-2 minutes
+ LAN      1Gbps     34 seconds             Use 64-bit counters
+
+By the way, modem/router uptime timestamps overflow every 1.36 years.
+
+But don't worry. I<broadband-usage> copes with occasional modem/router
+reboots and the uptime and/or byte counters overflowing once between
+samples (even if they both overflow in the same period between samples).
+It's only multiple overflows between samples that are a problem.
+So don't let that happen.
+
+=head1 EXAMPLE
+
+Here is the I<broadband-usage>-related part of my crontab:
+
+ # Log broadband usage every 15 minutes and at 23:59:59 every day
+ 0,15,30,45 * * * * /usr/local/bin/broadband-usage-log -r moriarty -i 2
+ 59 23 * * * sleep 59; /usr/local/bin/broadband-usage-log -r moriarty -i 2
+ # Save broadband usage report into the broadband log directory
+ 5 0 1 * * /usr/local/bin/broadband-usage -o 0100-1000 > /var/log/broadband/`date +%Y%m%d`-usage
+ # Compress broadband usage logs after a month, delete them after three months
+ 1 0 1 * * find /var/log/broadband -mtime +32 -a -name '*[0-9]' -exec gzip '{}' ';'
+ 1 0 1 * * find /var/log/broadband -mtime +92 -a -name '*.gz' -exec rm '{}' ';'
+
+=head1 SEE ALSO
+
+I<broadband-usage(1)>
+
+=head1 AUTHOR
+
+20060122 raf <raf@raf.org>
+
+=head1 URL
+
+C<http://raf.org/broadband-usage/>
+
+=cut
+
+my $version = 0.1;
+my $logdir = $ENV{BROADBAND_LOG} || '/var/log/broadband';
+my $snmpget = $ENV{BROADBAND_SNMPGET} || 'snmpget';
+my $snmpv = $ENV{BROADBAND_SNMPV} || '1';
+my $community = $ENV{BROADBAND_COMMUNITY} || 'public';
+my $router = $ENV{BROADBAND_ROUTER} || 'router';
+my $ifaces = $ENV{BROADBAND_WAN_INTERFACE} || 1;
+my $wide = $ENV{BROADBAND_COUNTER64} ? 1 : 0;
+
+sub help
+{
+	print << "END";
+usage: broadband-usage-log [options]
+options:
+  -h           - Print this message then exit.
+  -V           - Print the version then exit.
+  -M           - Print the manpage then exit
+  -W           - Print the manpage in html format then exit
+  -R           - Print the manpage in nroff format then exit
+  -l /logdir   - Override log directory (default: $logdir)
+  -s snmpget   - Override snmpget path (default: $snmpget)
+  -v (1|2c|3)  - Override SNMP version (default: $snmpv)
+  -c community - Override SNMP community (default: $community)
+  -r router    - Override modem/router hostname (default: $router)
+  -i #[,#]*    - Override the interface number(s) (default: $ifaces)
+  -w           - Fetch 64-bit byte counters (rather than 32-bit ones)
+
+Home broadband usage meter for SNMP-enabled modem/routers:
+This program collects modem/router statistics and logs them to file.
+Create the log directory $logdir (owned by you).
+Cron this to run every 5-15 minutes and at 23:59:59 every night.
+Then use broadband-usage later to report the logged statistics.
+WARNING: Don't switch between 32- and 64-bit counters in the same file.
+END
+}
+
+sub man
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0 | nroff -man | " . ($ENV{PAGER} || 'more');
+}
+
+sub nroff
+{
+	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
+	system "pod2man $noquotes $0";
+}
+
+sub html
+{
+	system "pod2html --noindex $0";
+	unlink glob 'pod2htm*';
+}
+
+my %opt;
+use Getopt::Std;
+help, exit if !getopts('hVMWRl:s:v:c:r:i:w', \%opt) || exists $opt{h};
+print("broadband-usage-log-$version\n"), exit if exists $opt{V};
+man, exit if exists $opt{M};
+html, exit if exists $opt{W};
+nroff, exit if exists $opt{R};
+$logdir = $opt{l} if exists $opt{l};
+$snmpget = $opt{s} if exists $opt{s};
+$snmpv = $opt{v} if exists $opt{v};
+$community = $opt{c} if exists $opt{c};
+$router = $opt{r} if exists $opt{r};
+$ifaces = $opt{i} if exists $opt{i};
+$wide = exists $opt{w};
+die "Invalid argument to -v option: '$opt{v}' (Must be 1, 2c or 3)\n" unless $snmpv =~ /^(?:1|2c|3)$/;
+die "The -w option is incompatible with SNMPv1 (Must use -v2c or -v3)\n" if $snmpv eq '1' && $wide;
+mkdir $logdir, 0755 or die "Failed to mkdir $logdir: $!\n" unless -d $logdir;
+die "$logdir is not a writable directory\n" unless -d $logdir && -w $logdir;
+$community = ($snmpv =~ /[12]/) ? '-c ' . $community : '';
+
+use POSIX;
+my $timestamp = strftime '%Y%m%d%H%M%S', localtime;
+my ($monthstamp) = $timestamp =~ /^(\d{6})/;
+
+for my $iface (split /[, ]+/, $ifaces)
+{
+	my ($up, $in, $out);
+	my @oid = ("sysUpTime.0", "ifInOctets.$iface", "ifOutOctets.$iface");
+	map { s/^if/ifHC/ } @oid if $wide;
+
+	open SNMP, "$snmpget -v$snmpv $community $router @{[join ' ', @oid]}  |" or die "Failed to run $snmpget: $!\n";
+
+	while (<SNMP>)
+	{
+		($up) = $1 if /sysUpTime.+ = Timeticks: \((\d+)\)/;
+		($in) = $1 if /InOctets\.\d+ = .*Counter\d+.*: "?(\d+)"?/;
+		($out) = $1 if /OutOctets\.\d+ = .*Counter\d+.*: "?(\d+)"?/;
+	}
+
+	close SNMP;
+	die "Failed to get $oid[0] from $router\n" unless defined $up;
+	die "Failed to get $oid[1] from $router\n" unless defined $in;
+	die "Failed to get $oid[2] from $router\n" unless defined $out;
+	my $log = "$logdir/$monthstamp.$router.$iface";
+	open LOG, '>>', $log or die "Failed to open $log for writing: $!\n";
+	print LOG "$timestamp $up $in $out\n";
+	close LOG;
+}
+
+# vi:set ts=4 sw=4:

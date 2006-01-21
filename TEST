@@ -1,0 +1,176 @@
+#!/usr/bin/env perl
+use warnings;
+use strict;
+
+# Test broadband-usage
+
+my $logfile = '200601.router.1';
+my $tests = 0;
+my $errors = 0;
+my $test;
+my $subtest;
+my $out;
+my $expected;
+
+sub run
+{
+	my $cmd = shift;
+	$subtest = $cmd ? " ($cmd)" : '';
+	open OUT, "./broadband-usage $cmd -l . |" or die "Failed to run $cmd\n";
+	my $out = do { local $/ = undef; <OUT>; };
+	close OUT;
+	return $out;
+}
+
+sub test
+{
+	my ($cmd, $expected) = @_;
+	++$tests; $out = run($cmd);
+	++$errors, print "$test test$subtest failed:\nExpected:\n${expected}Actual:\n$out\n" unless $out eq $expected;
+}
+
+sub test_normal_set
+{
+	my $o = shift || '';
+	test "$o " . '', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.5GB)\n";
+	test "$o " . '-n', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.5GB)\n";
+	test "$o " . '-u', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (5GB)\n";
+	test "$o " . '-u -n', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (5GB)\n";
+	test "$o " . '-o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (1GB) peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.5GB) off-peak\n";
+	test "$o " . '-o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (2GB) peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (500MB) off-peak\n";
+	test "$o " . '-n -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (1GB) peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.5GB) off-peak\n";
+	test "$o " . '-n -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (2GB) peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (500MB) off-peak\n";
+	test "$o " . '-u -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (2GB) peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (3GB) off-peak\n";
+	test "$o " . '-u -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (4GB) peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (1GB) off-peak\n";
+	test "$o " . '-u -n -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (2GB) peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (3GB) off-peak\n";
+	test "$o " . '-u -n -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (4GB) peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (1GB) off-peak\n";
+	test "$o " . '-g', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.32831GiB)\n";
+	test "$o " . '-g -n', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.32831GiB)\n";
+	test "$o " . '-g -u', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (4.65661GiB)\n";
+	test "$o " . '-g -u -n', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (4.65661GiB)\n";
+	test "$o " . '-g -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (953.674MiB) peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.39698GiB) off-peak\n";
+	test "$o " . '-g -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (1.86265GiB) peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (476.837MiB) off-peak\n";
+	test "$o " . '-g -n -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (953.674MiB) peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.39698GiB) off-peak\n";
+	test "$o " . '-g -n -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (1.86265GiB) peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (476.837MiB) off-peak\n";
+	test "$o " . '-g -u -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (1.86265GiB) peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (2.79397GiB) off-peak\n";
+	test "$o " . '-g -u -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (3.72529GiB) peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (953.674MiB) off-peak\n";
+	test "$o " . '-g -u -n -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (1.86265GiB) peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (2.79397GiB) off-peak\n";
+	test "$o " . '-g -u -n -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (3.72529GiB) peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (953.674MiB) off-peak\n";
+}
+
+sub test_reboot_set
+{
+	my $o = shift || '';
+	test "$o " . '', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.5GB) [1 restart, 30m interpolated]\n";
+	test "$o " . '-n', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (2GB) [1 restart, 30m lost]\n";
+	test "$o " . '-u', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (5GB) [1 restart, 30m interpolated]\n";
+	test "$o " . '-u -n', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (4GB) [1 restart, 30m lost]\n";
+	test "$o " . '-o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (1GB) [1 restart, 30m interpolated] peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.5GB) off-peak\n";
+	test "$o " . '-o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (2GB) [1 restart, 30m interpolated] peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (500MB) off-peak\n";
+	test "$o " . '-n -o 0000-1200', "200601.router.1 in=500000000 out=500000000 total=500000000 (500MB) [1 restart, 30m lost] peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.5GB) off-peak\n";
+	test "$o " . '-n -o 2200-1100', "200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.5GB) [1 restart, 30m lost] peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (500MB) off-peak\n";
+	test "$o " . '-u -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (2GB) [1 restart, 30m interpolated] peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (3GB) off-peak\n";
+	test "$o " . '-u -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (4GB) [1 restart, 30m interpolated] peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (1GB) off-peak\n";
+	test "$o " . '-u -n -o 0000-1200', "200601.router.1 in=500000000 out=500000000 total=1000000000 (1GB) [1 restart, 30m lost] peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (3GB) off-peak\n";
+	test "$o " . '-u -n -o 2200-1100', "200601.router.1 in=1500000000 out=1500000000 total=3000000000 (3GB) [1 restart, 30m lost] peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (1GB) off-peak\n";
+	test "$o " . '-g', "200601.router.1 in=2500000000 out=2500000000 total=2500000000 (2.32831GiB) [1 restart, 30m interpolated]\n";
+	test "$o " . '-g -n', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (1.86265GiB) [1 restart, 30m lost]\n";
+	test "$o " . '-g -u', "200601.router.1 in=2500000000 out=2500000000 total=5000000000 (4.65661GiB) [1 restart, 30m interpolated]\n";
+	test "$o " . '-g -u -n', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (3.72529GiB) [1 restart, 30m lost]\n";
+	test "$o " . '-g -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=1000000000 (953.674MiB) [1 restart, 30m interpolated] peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.39698GiB) off-peak\n";
+	test "$o " . '-g -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=2000000000 (1.86265GiB) [1 restart, 30m interpolated] peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (476.837MiB) off-peak\n";
+	test "$o " . '-g -n -o 0000-1200', "200601.router.1 in=500000000 out=500000000 total=500000000 (476.837MiB) [1 restart, 30m lost] peak\n200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.39698GiB) off-peak\n";
+	test "$o " . '-g -n -o 2200-1100', "200601.router.1 in=1500000000 out=1500000000 total=1500000000 (1.39698GiB) [1 restart, 30m lost] peak\n200601.router.1 in=500000000 out=500000000 total=500000000 (476.837MiB) off-peak\n";
+	test "$o " . '-g -u -o 0000-1200', "200601.router.1 in=1000000000 out=1000000000 total=2000000000 (1.86265GiB) [1 restart, 30m interpolated] peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (2.79397GiB) off-peak\n";
+	test "$o " . '-g -u -o 2200-1100', "200601.router.1 in=2000000000 out=2000000000 total=4000000000 (3.72529GiB) [1 restart, 30m interpolated] peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (953.674MiB) off-peak\n";
+	test "$o " . '-g -u -n -o 0000-1200', "200601.router.1 in=500000000 out=500000000 total=1000000000 (953.674MiB) [1 restart, 30m lost] peak\n200601.router.1 in=1500000000 out=1500000000 total=3000000000 (2.79397GiB) off-peak\n";
+	test "$o " . '-g -u -n -o 2200-1100', "200601.router.1 in=1500000000 out=1500000000 total=3000000000 (2.79397GiB) [1 restart, 30m lost] peak\n200601.router.1 in=500000000 out=500000000 total=1000000000 (953.674MiB) off-peak\n";
+}
+
+sub normal_tests
+{
+	my $wide_only = shift;
+	test_normal_set unless $wide_only;
+	test_normal_set '-w';
+}
+
+sub reboot_tests
+{
+	test_reboot_set;
+	test_reboot_set '-w';
+}
+
+$test = 'Normal';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4835686 500000000 500000000\n";
+print LOG "20060110100000 4925686 500000000 1000000000\n";
+print LOG "20060110110000 5015686 1000000000 1000000000\n";
+print LOG "20060110120000 5105686 2000000000 2000000000\n";
+print LOG "20060110130000 5195686 3000000000 3000000000\n";
+close LOG;
+normal_tests;
+
+$test = 'Reboot';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4835686 500000000 500000000\n";
+print LOG "20060110100000 4925686 500000000 1000000000\n";
+print LOG "20060110110000 5015686 1000000000 1000000000\n";
+print LOG "20060110120000 5105686 2000000000 2000000000\n";
+print LOG "20060110130000 180000 500000000 500000000\n";
+close LOG;
+reboot_tests;
+
+$test = 'Byte counter overflow (32-bit)';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4835686 3294967296 3294967296\n";
+print LOG "20060110100000 4925686 3294967296 3794967296\n";
+print LOG "20060110110000 5015686 3794967296 3794967296\n";
+print LOG "20060110120000 5105686 500000000 500000000\n";
+print LOG "20060110130000 5195686 1500000000 1500000000\n";
+close LOG;
+normal_tests;
+
+$test = 'Uptime overflow';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4294832295 500000000 500000000\n";
+print LOG "20060110100000 4294922295 500000000 1000000000\n";
+print LOG "20060110110000 45000 1000000000 1000000000\n";
+print LOG "20060110120000 135000 2000000000 2000000000\n";
+print LOG "20060110130000 22500 3000000000 3000000000\n";
+close LOG;
+normal_tests;
+
+$test = 'Uptime overflow and byte counter overflow (32-bit)';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4294832295 3294967296 3294967296\n";
+print LOG "20060110100000 4294922295 3294967296 3794967296\n";
+print LOG "20060110110000 45000 3794967296 3794967296\n";
+print LOG "20060110120000 135000 500000000 500000000\n";
+print LOG "20060110130000 22500 1500000000 1500000000\n";
+close LOG;
+normal_tests;
+
+$test = 'Byte counter overflow (64-bit)';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4835686 18446744072709551616 18446744072709551616\n";
+print LOG "20060110100000 4925686 18446744072709551616 18446744073209551616\n";
+print LOG "20060110110000 5015686 18446744073209551616 18446744073209551616\n";
+print LOG "20060110120000 5105686 500000000 500000000\n";
+print LOG "20060110130000 5195686 1500000000 1500000000\n";
+close LOG;
+normal_tests 1;
+
+$test = 'Uptime overflow and byte counter overflow (64-bit)';
+open LOG, '>', $logfile or die "Failed to open $logfile for writing: $!\n";
+print LOG "20060110090000 4294832295 18446744072709551616 18446744072709551616\n";
+print LOG "20060110100000 4294922295 18446744072709551616 18446744073209551616\n";
+print LOG "20060110110000 45000 18446744073209551616 18446744073209551616\n";
+print LOG "20060110120000 135000 500000000 500000000\n";
+print LOG "20060110130000 22500 1500000000 1500000000\n";
+close LOG;
+normal_tests 1;
+
+print($errors ? "$errors/$tests tests failed\n" : "All $tests tests passed.\n");
+unlink $logfile;
+
+# vi:set ts=4 sw=4:
