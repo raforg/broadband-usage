@@ -150,7 +150,7 @@ my ($offpeak_start, $offpeak_finish) = ($1, $2) if defined $offpeak;
 $offpeak_finish = '2400' if defined $offpeak && $offpeak_finish eq '0000';
 $offpeak = undef if defined $offpeak && $offpeak_start eq '0000' && $offpeak_finish eq '2400';
 my $offpeak_midnight = ($offpeak_start lt $offpeak_finish) ? 0 : 1 if defined $offpeak;
-use Math::BigInt lib => 'GMP';
+use Math::BigInt try => 'GMP';
 sub bigint { new Math::BigInt shift }
 
 for my $log (glob "$logdir/[0-9][0-9][0-9][0-9][0-9][0-9].$router.$iface")
