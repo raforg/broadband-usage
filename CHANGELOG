@@ -1,0 +1,9 @@
+0.2 (20230808)
+
+    - Suppress warning about missing Math::BigInt::GMP
+    - Add standard --help and --version alternatives to -h and -V
+
+0.1 (20060122)
+
+    - Initial version
+

@@ -1,4 +1,4 @@
-version := 0.1
+version := 0.2
 logdir := /var/log/broadband
 prefix := /usr/local
 bindir := $(prefix)/bin
@@ -34,7 +34,7 @@ dist:
 	@base=`basename \`pwd\``; \
 	cd ..; \
 	ln -s $$base $$base-$(version); \
-	tar chzf $$base-$(version).tar.gz $$base-$(version); \
+	tar chzf $$base-$(version).tar.gz --exclude .git $$base-$(version); \
 	tar tvzf $$base-$(version).tar.gz; \
 	rm -f $$base-$(version)
 
