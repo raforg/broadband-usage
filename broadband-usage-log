@@ -1,6 +1,8 @@
 #!/usr/bin/env perl
+use 5.006;
 use warnings;
 use strict;
+BEGIN { pop @INC if $INC[-1] eq '.' }
 
 # broadband-usage - Home broadband usage meter for SNMP-enabled modem/routers
 #
@@ -31,6 +33,8 @@ I<broadband-usage-log> - Home broadband usage meter for SNMP-enabled modem/route
 
  usage: broadband-usage-log [options]
  options:
+  --help       - Print this message then exit.
+  --version    - Print the version then exit.
   -h           - Print this message then exit.
   -V           - Print the version then exit.
   -M           - Print the manpage then exit
@@ -130,6 +134,7 @@ C<http://raf.org/broadband-usage/>
 
 =cut
 
+my ($name) = $0 =~ /([^\/]+)$/;
 my $version = 0.1;
 my $logdir = $ENV{BROADBAND_LOG} || '/var/log/broadband';
 my $snmpget = $ENV{BROADBAND_SNMPGET} || 'snmpget';
@@ -144,6 +149,8 @@ sub help
 	print << "END";
 usage: broadband-usage-log [options]
 options:
+  --help       - Print this message then exit.
+  --version    - Print the version then exit.
   -h           - Print this message then exit.
   -V           - Print the version then exit.
   -M           - Print the manpage then exit
@@ -166,6 +173,12 @@ WARNING: Don't switch between 32- and 64-bit counters in the same file.
 END
 }
 
+sub version
+{
+	print "$name-$version\n";
+	exit;
+}
+
 sub man
 {
 	my $noquotes = (`pod2man -h 2>&1` =~ /--quotes=/) ? '--quotes=none' : '';
@@ -182,6 +195,17 @@ sub html
 {
 	system "pod2html --noindex $0";
 	unlink glob 'pod2htm*';
+}
+
+sub HELP_MESSAGE
+{
+	help;
+}
+
+sub VERSION_MESSAGE
+{
+	return if $ARGV[0] eq '--help'; # This is called before HELP_MESSAGE for some reason
+	version;
 }
 
 my %opt;
